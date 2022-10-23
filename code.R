@@ -112,7 +112,6 @@ tf.list <- tf.list.oil.firms %>%
   arrange(-ll) %>%
   head(n = 500)
 
-
 ## calculating the cosine similarity values and filtering the 5 firms with the 
 ## highest similarity value for the respective oil firms
 cosine.sim.values = list()
@@ -148,3 +147,10 @@ return.peer.group <- raw.data %>%
 
 return.peer.group$yr.return = apply(X = return.peer.group, MARGIN = 1, FUN = annual.return)
 print(paste0("Avg. Yearly Return - Peer Group: +",round((mean(return.peer.group$yr.return)-1)*100, digits = 2), "%"))
+
+
+
+# Next steps:
+# Compute average return per each month over firms from oil sector 
+# Compare average return per each month over peer firms
+# Compute Mean Root Squared Error of average performance of both portfolios
