@@ -2,6 +2,7 @@ library(dplyr)
 library(tm)
 library(slam)
 library(tokenizers)
+library(Metrics)
 
 load("firm_dataset.Rdata")
 
@@ -136,9 +137,54 @@ for (i in 1:nrow(dtm.oil.firms)) {
 }
 
 ## storing the cik's of the peer group firms
-peer.group.cik <- unique(names(unlist(cosine.sim.values)))
+peer.group.cik <- names(unlist(cosine.sim.values))
 
-# average return oil firms
+## average return oil firms
+oil.firms.monthly.returns.averages <- c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)
+
+oil.firms.monthly.returns <- 
+  raw.data %>% 
+  filter(cik %in% oil.firms.cik) %>% 
+  select(contains("return.monthly.NY.m"))
+
+for (i in 1:ncol(oil.firms.monthly.returns)) {
+  oil.firms.monthly.returns %>% 
+    pull(i) %>% 
+    mean() -> oil.firms.monthly.returns.averages[i]
+}
+
+## average return of peer firms
+peer.firms.monthly.returns.averages <- c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)
+
+peer.firms.monthly.returns <-
+  raw.data %>% 
+  filter(cik %in% peer.group.cik) %>% 
+  select(contains("return.monthly.NY.m"))
+
+for (i in 1:ncol(peer.firms.monthly.returns)) {
+  peer.firms.monthly.returns %>% 
+    pull(i) %>% 
+    mean() -> peer.firms.monthly.returns.averages[i]
+}
+
+## Combine average returns per month of both portfolios in one df
+returns <- tibble(
+  month = month.abb,
+  oil = oil.firms.monthly.returns.averages,
+  peers = peer.firms.monthly.returns.averages)
+returns
+
+## Calculate Root Mean Squared Error
+rmse(oil.firms.monthly.returns.averages, peer.firms.monthly.returns.averages)
+
+## Calculate annual returns of both portfolios
+annual.return(oil.firms.monthly.returns.averages)
+annual.return(peer.firms.monthly.returns.averages)
+
+
+
+
+########################################################################### OLD
 return.oil.firms <- raw.data %>%
   filter(cik %in% oil.firms.cik) %>%
   select(contains("return.monthly.NY.m")) %>%
@@ -156,10 +202,3 @@ return.peer.group <- raw.data %>%
 
 return.peer.group$yr.return = apply(X = return.peer.group, MARGIN = 1, FUN = annual.return)
 print(paste0("Avg. Yearly Return - Peer Group: +",round((mean(return.peer.group$yr.return)-1)*100, digits = 2), "%"))
-
-
-
-# Next steps:
-# Compute average return per each month over firms from oil sector 
-# Compare average return per each month over peer firms
-# Compute Mean Root Squared Error of average performance of both portfolios
