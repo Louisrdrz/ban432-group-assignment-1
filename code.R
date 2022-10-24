@@ -183,22 +183,104 @@ annual.return(peer.firms.monthly.returns.averages)
 
 
 
+################### Same for unigrams
+business.desc.unigram <- tokenize_ngrams(business.desc, n = 1, ngram_delim = "_") %>%
+  lapply(., paste, collapse = " ") %>%
+  unlist()
 
-########################################################################### OLD
-return.oil.firms <- raw.data %>%
-  filter(cik %in% oil.firms.cik) %>%
-  select(contains("return.monthly.NY.m")) %>%
-  .[] + 1
+corpus.uni <- Corpus(VectorSource(business.desc.unigram))
+dtm.uni <- DocumentTermMatrix(corpus.uni, list(global = c(6,99)))
 
-return.oil.firms$yr.return = apply(X = return.oil.firms, MARGIN = 1, FUN = annual.return)
-print(paste0("Avg. Yearly Return - Oil Firms: ",round((mean(return.oil.firms$yr.return)-1)*100, digits = 2), "%"))
+dtm.oil.firms.uni <- dtm.uni[raw.data$cik %in% oil.firms.cik,]
+dtm.no.oil.firms.uni <- dtm.uni[!raw.data$cik %in% oil.firms.cik,]
 
 
-# average return peer group
-return.peer.group <- raw.data %>%
-  filter(cik %in% peer.group.cik) %>%
-  select(contains("return.monthly.NY.m")) %>%
-  .[] + 1
+## computing the term frequency matrix for oil and non oil firms
+tf.list.oil.firms.uni <- tibble(term = dtm.oil.firms.uni$dimnames$Terms, 
+                            freq.oil = col_sums(dtm.oil.firms.uni)) %>%
+  arrange(-freq.oil) %>%
+  mutate(freq.rank.oil = c(1:length(dtm.oil.firms.uni$dimnames$Terms)))
 
-return.peer.group$yr.return = apply(X = return.peer.group, MARGIN = 1, FUN = annual.return)
-print(paste0("Avg. Yearly Return - Peer Group: +",round((mean(return.peer.group$yr.return)-1)*100, digits = 2), "%"))
+tf.list.no.oil.firms.uni <- tibble(term = dtm.no.oil.firms.uni$dimnames$Terms, 
+                               freq.no.oil = col_sums(dtm.no.oil.firms.uni))
+
+
+## joining the term frequency matrixes calculating the log likelhood of the respective tokens
+tf.list.uni <- tf.list.oil.firms.uni %>%
+  left_join(tf.list.no.oil.firms.uni, by = "term") %>%
+  mutate(ll = calculate.ll(freq.oil, 
+                           freq.no.oil, 
+                           sum(freq.oil), 
+                           sum(freq.no.oil))) %>%
+  arrange(-ll) %>%
+  head(n = 500)
+
+tf.highest.ll.uni <- 
+  tf.list.uni %>% 
+  pull(term)
+
+## recreate document term matrixes with only 500 terms with highest log-likelihood
+dtm.uni <- DocumentTermMatrix(corpus.uni, list(dictionary = tf.highest.ll.uni))
+dtm.oil.firms.uni <- dtm.uni[raw.data$cik %in% oil.firms.cik,]
+dtm.no.oil.firms.uni <- dtm.uni[!raw.data$cik %in% oil.firms.cik,]
+
+## calculating the cosine similarity values and filtering the 5 firms with the 
+## highest similarity value for the respective oil firms
+cosine.sim.values.uni = list()
+for (i in 1:nrow(dtm.oil.firms.uni)) {
+  act.oil.firm = list()
+  for (j in 1:nrow(dtm.no.oil.firms.uni)) {
+    res = CosineSimilarity(A = dtm.oil.firms[i,], B = dtm.no.oil.firms[j,])
+    act.oil.firm <- append(act.oil.firm, res)
+  }
+  act.oil.firm <- unlist(act.oil.firm)
+  act.oil.firm <- filter.highest.cosine(act.oil.firm, no.oil.firms.cik)
+  cosine.sim.values.uni <- lappend(cosine.sim.values, act.oil.firm)
+}
+
+## storing the cik's of the peer group firms
+peer.group.cik.uni <- names(unlist(cosine.sim.values.uni))
+
+## average return oil firms
+oil.firms.monthly.returns.averages.uni <- c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)
+
+oil.firms.monthly.returns.uni <- 
+  raw.data %>% 
+  filter(cik %in% oil.firms.cik) %>% 
+  select(contains("return.monthly.NY.m"))
+
+for (i in 1:ncol(oil.firms.monthly.returns.uni)) {
+  oil.firms.monthly.returns.uni %>% 
+    pull(i) %>% 
+    mean() -> oil.firms.monthly.returns.averages.uni[i]
+}
+
+## average return of peer firms
+peer.firms.monthly.returns.averages.uni <- c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)
+
+peer.firms.monthly.returns.uni <-
+  raw.data %>% 
+  filter(cik %in% peer.group.cik.uni) %>% 
+  select(contains("return.monthly.NY.m"))
+
+for (i in 1:ncol(peer.firms.monthly.returns.uni)) {
+  peer.firms.monthly.returns.uni %>% 
+    pull(i) %>% 
+    mean() -> peer.firms.monthly.returns.averages.uni[i]
+}
+
+## Combine average returns per month of both portfolios in one df
+returns.uni <- tibble(
+  month = month.abb,
+  oil = oil.firms.monthly.returns.averages.uni,
+  peers = peer.firms.monthly.returns.averages.uni)
+returns.uni
+
+## Calculate Root Mean Squared Error
+rmse(oil.firms.monthly.returns.averages, peer.firms.monthly.returns.averages)
+rmse(oil.firms.monthly.returns.averages.uni, peer.firms.monthly.returns.averages.uni)
+
+## Calculate annual returns of both portfolios
+annual.return(oil.firms.monthly.returns.averages.uni)
+annual.return(peer.firms.monthly.returns.averages.uni)
+
