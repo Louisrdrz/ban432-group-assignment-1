@@ -70,10 +70,10 @@ business.desc <- section.1.business %>%
   tolower() %>%
   removePunctuation() %>%
   removeNumbers() %>%
-  gsub("\\b\\w{1,2}\\b", "",.) %>%
-  gsub("\\b\\w{21,}\\b", "",.) %>%
-  gsub("\\b\\s{2,}\\b", " ",.) %>%
-  lapply(., remove_stopwords) %>%
+  gsub("\\b\\w{1,2}\\b", "",.) %>% # Remove terms with less than 3 letters
+  gsub("\\b\\w{21,}\\b", "",.) %>% # Remove terms with more than 20 letters
+  gsub("\\b\\s{2,}\\b", " ",.) %>% # Remove excess whitespaces
+  lapply(., remove_stopwords) %>%  # Remove stopwords in every description
   unlist()
 
 
@@ -111,6 +111,15 @@ tf.list <- tf.list.oil.firms %>%
                            sum(freq.no.oil))) %>%
   arrange(-ll) %>%
   head(n = 500)
+
+tf.highest.ll <- 
+  tf.list %>% 
+  pull(term)
+
+## recreate document term matrixes with only 500 terms with highest log-likelihood
+dtm <- DocumentTermMatrix(corpus, list(dictionary = tf.highest.ll))
+dtm.oil.firms <- dtm[raw.data$cik %in% oil.firms.cik,]
+dtm.no.oil.firms <- dtm[!raw.data$cik %in% oil.firms.cik,]
 
 ## calculating the cosine similarity values and filtering the 5 firms with the 
 ## highest similarity value for the respective oil firms
