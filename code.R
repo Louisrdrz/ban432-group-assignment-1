@@ -52,13 +52,10 @@ filter.highest.cosine <- function(vector, names) {
     pull(value, names)
 }
 
-
 ## function to calculate the annual return of a firm
 annual.return <- function(i) {
   return(i[1] * i[2] * i[3] * i[4] * i[5] * i[6] * i[7] * i[8] * i[9] * i[10] * i[11] * i[12])
 }
-
-
 
 ## cik of firms belonging to the oil and non-oil sector
 oil.firms.cik <- select(raw.data, cik, industry.fama.french.49) %>%
@@ -68,7 +65,6 @@ oil.firms.cik <- select(raw.data, cik, industry.fama.french.49) %>%
 no.oil.firms.cik <- select(raw.data, cik, industry.fama.french.49) %>%
   filter(!industry.fama.french.49 == "30 Oil") %>%
   pull(cik)
-
 
 ## cleaning of the firm description texts
 business.desc <- section.1.business %>%
@@ -81,21 +77,18 @@ business.desc <- section.1.business %>%
   lapply(., remove_stopwords) %>% # Remove stopwords in every description
   unlist()
 
-
 ## creating bigrams for each token in the corpus
 business.desc.bigram <- tokenize_ngrams(business.desc, n = 2, ngram_delim = "_") %>%
   lapply(., paste, collapse = " ") %>%
   unlist()
 
-
-## creating dtm's fpr oil and non oil firms
+## creating dtm's for oil and non oil firms
 corpus <- Corpus(VectorSource(business.desc.bigram))
 dtm <- DocumentTermMatrix(corpus, list(global = c(6, 99)))
 
 
 dtm.oil.firms <- dtm[raw.data$cik %in% oil.firms.cik, ]
 dtm.no.oil.firms <- dtm[!raw.data$cik %in% oil.firms.cik, ]
-
 
 ## computing the term frequency matrix for oil and non oil firms
 tf.list.oil.firms <- tibble(
@@ -109,7 +102,6 @@ tf.list.no.oil.firms <- tibble(
   term = dtm.no.oil.firms$dimnames$Terms,
   freq.no.oil = col_sums(dtm.no.oil.firms)
 )
-
 
 ## joining the term frequency matrixes calculating the log likelhood of the respective tokens
 tf.list <- tf.list.oil.firms %>%
@@ -149,9 +141,10 @@ for (i in 1:nrow(dtm.oil.firms)) {
 ## storing the cik's of the peer group firms
 peer.group.cik <- names(unlist(cosine.sim.values))
 
-## average return oil firms
+## create empty vector for the average return of oil firms
 oil.firms.monthly.returns.averages <- c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)
 
+## calculating the average return of oil firms 
 oil.firms.monthly.returns <-
   raw.data %>%
   filter(cik %in% oil.firms.cik) %>%
@@ -163,9 +156,10 @@ for (i in 1:ncol(oil.firms.monthly.returns)) {
     mean() -> oil.firms.monthly.returns.averages[i]
 }
 
-## average return of peer firms
+## create empty vector for the average return of peer firms
 peer.firms.monthly.returns.averages <- c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)
 
+## calculating the average return of peer firms 
 peer.firms.monthly.returns <-
   raw.data %>%
   filter(cik %in% peer.group.cik) %>%
@@ -191,7 +185,6 @@ rmse(oil.firms.monthly.returns.averages, peer.firms.monthly.returns.averages)
 ## Calculate annual returns of both portfolios
 annual.return(oil.firms.monthly.returns.averages)
 annual.return(peer.firms.monthly.returns.averages)
-
 
 
 ################### Same for unigrams
@@ -303,7 +296,6 @@ annual.return(oil.firms.monthly.returns.averages.uni)
 annual.return(peer.firms.monthly.returns.averages.uni)
 
 
-
 ################### Optional Exercise
 ## Function to calculate monthly average returns for one portfolio
 ## Input: df with 12 months as cols and firms as rows
@@ -321,7 +313,7 @@ calculate.portfolio.averages <-
     return(monthly.averages)
   }
 
-# Create set of 10000 alternative portfolios of 90 companies
+## Create set of 10000 alternative portfolios of 90 companies
 alternative.firm.portfolios <- 
   mc_replicate(10000,
                sample(
@@ -332,14 +324,14 @@ alternative.firm.portfolios <-
   ) %>%
   as_tibble()
 
-# Create empty df for average returns per month for each portfolio
+## Create empty df for average returns per month for each portfolio
 alternative.returns <- data.frame(matrix(ncol = 12, nrow = 10000))
 colnames(alternative.returns) <- 
   raw.data %>%
   select(contains("return.monthly.NY.m")) %>%
   colnames()
 
-# Fill alternative returns df with average returns per month
+## Fill alternative returns df with average returns per month
 for (i in 1:nrow(alternative.returns)) {
   act.firms <- alternative.firm.portfolios[,i]
   act.averages <-  
@@ -350,11 +342,11 @@ for (i in 1:nrow(alternative.returns)) {
   alternative.returns[i,] = act.averages
 }
 
-# Add RMSE values to alternative returns df
+## Add RMSE values to alternative returns df
 alternative.returns$RMSE <- 
   apply(alternative.returns, 1, FUN = rmse, actual = oil.firms.monthly.returns.averages)
 
-# Print histogram displaying the distribution of RMSE values of alternative portfolios
+## Print histogram displaying the distribution of RMSE values of alternative portfolios
 alternative.returns %>%
   ggplot(aes(x = RMSE)) + geom_histogram(colour = "black", fill = "white", binwidth = .0004) + 
   geom_density(alpha=.5, fill="#FF6666") + 
