@@ -341,6 +341,8 @@ for (i in 1:ncol(alternative.firm.portfolios)) {
   )
 }
 
-
 portfolio.returns %>%
-  ggplot(aes(x = portfolio, y = rmse)) + geom_col(aes(fill=rmse))
+  ggplot(aes(x = rmse)) + geom_histogram(colour = "black", fill = "white", binwidth = .0004) + 
+  geom_density(alpha=.5, fill="#FF6666") + 
+  theme_bw() +
+  labs(title = "RMSE corresponding to 1000 random portfolios", x = "RMSE", y = "Amount")
