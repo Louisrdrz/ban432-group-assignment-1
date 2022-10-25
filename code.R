@@ -305,21 +305,72 @@ annual.return(peer.firms.monthly.returns.averages.uni)
 
 
 ################### Optional Exercise
+## Function to calculate monthly average returns for one portfolio
+## Input: df with 12 months as cols and firms as rows
+## Output: vector with 12 values for average returns of each month
+calculate.portfolio.averages <- 
+  function(portfolio) {
+    monthly.averages <- c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)
+    
+    for (i in 1:ncol(portfolio)) {
+      portfolio %>%
+        pull(i) %>%
+        mean() -> monthly.averages[i]
+    }
+    
+    return(monthly.averages)
+  }
 
-alternative.firm.portfolios <- mc_replicate(10000,
-  sample(
-    filter(raw.data, cik %in% no.oil.firms.cik) %>% pull(cik),
-    90
-  ),
-  mc.cores = detectCores() - 1
-) %>%
+# Create set of 10000 alternative portfolios of 90 companies
+alternative.firm.portfolios <- 
+  mc_replicate(10000,
+               sample(
+                 no.oil.firms.cik,
+                 90
+               ),
+               mc.cores = detectCores() - 1
+  ) %>%
   as_tibble()
 
+# Create empty df for average returns per month for each portfolio
+alternative.returns <- data.frame(matrix(ncol = 12, nrow = 10000))
+colnames(alternative.returns) <- 
+  raw.data %>%
+  select(contains("return.monthly.NY.m")) %>%
+  colnames()
 
-portfolio.returns <- data.frame(
-  portfolio = integer(),
-  rmse = double()
-)
+# Fill alternative returns df with average returns per month
+for (i in 1:nrow(alternative.returns)) {
+  act.firms <- alternative.firm.portfolios[,i]
+  act.averages <-  
+    raw.data %>% 
+    filter(cik %in% pull(act.firms)) %>% 
+    select(contains("return.monthly.NY.m")) %>% 
+    calculate.portfolio.averages()
+  alternative.returns[i,] = act.averages
+}
+
+# Add RMSE values to alternative returns df
+alternative.returns$RMSE <- 
+  apply(alternative.returns, 1, FUN = rmse, actual = oil.firms.monthly.returns.averages)
+
+# Print histogram displaying the distribution of RMSE values of alternative portfolios
+alternative.returns %>%
+  ggplot(aes(x = RMSE)) + geom_histogram(colour = "black", fill = "white", binwidth = .0004) + 
+  geom_density(alpha=.5, fill="#FF6666") + 
+  theme_bw() +
+  labs(title = "RMSE corresponding to 1000 random portfolios", x = "RMSE", y = "Amount")
+
+
+
+
+
+
+
+
+
+
+############################################# OLD
 
 for (i in 1:ncol(alternative.firm.portfolios)) {
   act.firms.monthly.returns <-
